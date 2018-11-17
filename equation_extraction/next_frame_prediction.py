@@ -20,9 +20,9 @@ testing_set_percentage = 1 - training_set_percentage
 training_indices = np.random.choice(np.arange(len(inputs)), int(len(inputs) * training_set_percentage), replace = False)
 testing_indices = np.array(list(set(range(len(inputs))) - set(training_indices)))
 
-training_set_inputs = inputs[training_indices,:,:,:]
+training_set_inputs = inputs[training_indices,:2,:,:]
 training_set_outputs = outputs[training_indices,:]
-testing_set_inputs = inputs[testing_indices,:,:,:]
+testing_set_inputs = inputs[testing_indices,:2,:,:]
 testing_set_outputs = outputs[testing_indices,:]
 
 batches = []
@@ -40,7 +40,7 @@ class ConvNet(nn.Module):
     def __init__(self):
         super(ConvNet, self).__init__()
         self.cnn1 = nn.Sequential(
-            nn.Conv2d(3, 16, kernel_size=5, stride=1, padding=2),
+            nn.Conv2d(2, 16, kernel_size=5, stride=1, padding=2),
             nn.BatchNorm2d(16),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))

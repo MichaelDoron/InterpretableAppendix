@@ -32,8 +32,8 @@ class world(ShowBase):
         self.ball.setMaterial(m, 1)
 
         duration = 5
-        ball_start_position = Point3(70,np.random.randint(-2,2),-1)
-        ball_velocity = Point3(0,np.random.randint(-4,4),np.random.randint(10,14))
+        ball_start_position = Point3(70,(np.random.rand() * 8) - 4,-1)
+        ball_velocity = Point3(0,(np.random.rand() * 8) - 4,(np.random.rand() * 8) + 6)
         self.trajectory = ProjectileInterval(self.ball,
                                              startPos = ball_start_position,
                                              startVel = ball_velocity, duration = duration)
@@ -62,12 +62,13 @@ ball_pos = []
 world_nums = []
 steps = []
 frame_img = []
-for world_num in range(250):
+for world_num in range(400):
+    print(world_num)
     app = world()
     taskMgr = taskMgr
     taskMgr.step()
     for step in range(20):
-        print app.get_ball_pos()
+        # print app.get_ball_pos()
         taskMgr.step()
         base.graphicsEngine.renderFrame()
         base.win.saveScreenshot(Filename("frames/ball_{}_{}.png".format(world_num, step)))
