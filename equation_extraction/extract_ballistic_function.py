@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import argparse
 import math
+import pickle
 
 parser = argparse.ArgumentParser(description='extract_ballistic_function')
 parser.add_argument(
@@ -68,7 +69,7 @@ class ConvNet(nn.Module):
 class Ballistic(torch.nn.Module):
     def __init__(self):
         super(Ballistic, self).__init__()
-        self.weight = torch.nn.Parameter(torch.Tensor(4)) # For starters, only learn t_coeff and (g / 2)
+        self.weight = torch.nn.Parameter(torch.Tensor(6)) 
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -77,8 +78,8 @@ class Ballistic(torch.nn.Module):
 
     def forward(self, input_1, t):
       # Want to learn this: y_0           + V_0y          * 10     * t_coeff        - (g / 2)        *          (10     * t_coeff)        ^ 2 
-      output_x =              input_1[:, 0] + input_1[:, 1] * t * self.weight[0]
-      output_y =              input_1[:, 2] + input_1[:, 3] * t * self.weight[1] + self.weight[2] * torch.pow(t * self.weight[3], 2)
+      output_x =              input_1[:, 0] * self.weight[0] + input_1[:, 1] * t * self.weight[1]
+      output_y =              input_1[:, 2] * self.weight[2] + input_1[:, 3] * t * self.weight[3] + input_1[:, 4] * self.weight[4] * torch.pow(t * input_1[:, 5] * self.weight[5], 2)
       return torch.cat((output_x.reshape(-1,1), output_y.reshape(-1,1)), dim=1)
 
 def appendix_forward(self, x, t):
@@ -90,7 +91,6 @@ def appendix_forward(self, x, t):
     app_tensor = torch.cat((app_tensor, out.clone()), 1)
     out = torch.nn.functional.relu(self.fc2(out))
     app_tensor = torch.cat((app_tensor, out.clone()), 1)
-    out = self.fc3(out)
     app_out = self.app_fc(app_tensor)
     app_out = self.app_Ballstic(app_out, t)
     return app_out        
@@ -148,7 +148,7 @@ def train_appendix():
     appendix = ConvNet()
     appendix.load_state_dict(model.state_dict())
     appendix.forward = appendix_forward.__get__(appendix)
-    appendix.app_fc = nn.Linear(64, 4)        
+    appendix.app_fc = nn.Linear(64, 6)        
     appendix.app_Ballstic = Ballistic()
     for name, param in appendix.named_parameters():
       if name.startswith('app_'):
@@ -165,7 +165,6 @@ def train_appendix():
             break
         epoch_losses = []
         for (images, ts, positions) in batches:
-            i += 1
             t = ts.to(device)
             x = images.to(device)
             y = positions.to(device)
@@ -200,7 +199,7 @@ def train_appendix():
 def constraint_sparsity():
     appendix = ConvNet().to(device)
     appendix.forward = appendix_forward.__get__(appendix)
-    appendix.app_fc = nn.Linear(64, 4)        
+    appendix.app_fc = nn.Linear(64, 6)        
     appendix.app_Ballstic = Ballistic()
     state_dict = torch.load('appendix.ckpt')
     appendix.load_state_dict(state_dict)
@@ -217,7 +216,6 @@ def constraint_sparsity():
     sparsity_losses = []
     for epoch in range(num_epochs):
         for (images, ts, positions) in batches:
-            i += 1
             t = ts.to(device)
             x = images.to(device)
             y = positions.to(device)
@@ -235,7 +233,7 @@ def constraint_sparsity():
             loss.backward()
             optimizer.step()
         print ('Epoch [{}/{}], mean loss: {:.4f}, sparsity weight = {:.4f}' .format(epoch+1, num_epochs, np.mean(epoch_loss), l1_weight))
-        if np.mean(epoch_loss) < 50:
+        if np.mean(epoch_loss) < 100:
             l1_weight += 0.05
         epoch_loss = []
         torch.save(appendix.state_dict(), 'sparse.ckpt')
@@ -284,3 +282,31 @@ if __name__ == '__main__':
     if args.train_model: train_model()
     if args.train_appendix: train_appendix()
     if args.constraint_sparsity: constraint_sparsity()
+
+
+
+
+# t = np.arange(0,20,1)
+# X0 = [-1] * 20
+# Y0 = [-1] * 20
+# X_vel = [1] * 20
+# Y_vel = [-5] * 20
+# output_x = X0 + X_vel * t * (-2.1311)
+# output_y = Y0 + Y_vel * t * (2.4125) + (1.4394) * np.power(t * (1.5180), 2)
+# plt.close('all')
+# plt.plot(output_y)
+
+# for name, param in appendix.named_parameters():
+#     if 'app_' in name:
+#         print(name, param)
+
+
+# for (images, ts, positions) in batches:
+#     pred_y = []
+#     for t in [4,5,6,7,8]:
+#         ts = torch.Tensor([t] * len(ts)).to(device)
+#         x = images.to(device)
+#         y = positions.to(device)
+#         pred = appendix(images, ts)
+#         pred_y.append(pred[:,1].detach().numpy())
+
